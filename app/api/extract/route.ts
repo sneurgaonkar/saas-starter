@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': FIRECRAWL_API_KEY,
+        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
       },
       body: JSON.stringify({
         urls: [url],
