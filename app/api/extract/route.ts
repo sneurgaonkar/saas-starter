@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
-const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/extract';
+const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/v1/extract';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,22 +25,36 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+        'X-API-Key': FIRECRAWL_API_KEY,
       },
       body: JSON.stringify({
         urls: [url],
-        // You can customize the extraction schema or prompt here
-        prompt: "Extract the main content, title, and any relevant metadata from this page"
+        prompt: "Extract the main content, title, and any relevant metadata from this page",
+        enableWebSearch: false
       }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to extract data from URL');
+      const errorText = await response.text();
+      console.error('Firecrawl API error response:', errorText);
+      throw new Error('Failed to extract data from URL');
     }
 
-    return NextResponse.json(data);
+    const data = await response.json();
+
+    if (data.status === 'processing') {
+      return NextResponse.json({
+        success: true,
+        status: 'processing',
+        message: 'Extraction in progress'
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: data.data
+    });
+
   } catch (error) {
     console.error('Extract API error:', error);
     return NextResponse.json(
