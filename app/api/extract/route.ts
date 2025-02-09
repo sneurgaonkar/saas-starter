@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await fetch(FIRECRAWL_API_URL, {
+    // Step 1: Initial extraction request
+    const extractResponse = await fetch(`${FIRECRAWL_API_URL}/extract`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -29,30 +30,46 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         urls: [url],
-        prompt: "Extract the main content, title, and any relevant metadata from this page",
+        prompt: "Give a summary of the website and give the title, and any relevant metadata from this page",
         enableWebSearch: false
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Firecrawl API error response:', errorText);
-      throw new Error('Failed to extract data from URL');
+    if (!extractResponse.ok) {
+      const errorText = await extractResponse.text();
+      console.error('Firecrawl Extract API error:', errorText);
+      throw new Error('Failed to initiate extraction');
     }
 
-    const data = await response.json();
+    const extractData = await extractResponse.json();
+    const extractId = extractData.id;
 
-    if (data.status === 'processing') {
-      return NextResponse.json({
-        success: true,
-        status: 'processing',
-        message: 'Extraction in progress'
-      });
+    if (!extractId) {
+      throw new Error('No extract ID received');
     }
+
+    // Step 2: Get extraction results
+    const resultResponse = await fetch(`${FIRECRAWL_API_URL}/extract/${extractId}`, {
+      headers: {
+        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+      },
+    });
+
+    if (!resultResponse.ok) {
+      const errorText = await resultResponse.text();
+      console.error('Firecrawl Get Extract API error:', errorText);
+      throw new Error('Failed to get extraction results');
+    }
+
+    const resultData = await resultResponse.json();
 
     return NextResponse.json({
       success: true,
-      data: data.data
+      data: {
+        title: resultData.title || '',
+        summary: resultData.summary || '',
+        keywords: resultData.keywords || []
+      }
     });
 
   } catch (error) {
