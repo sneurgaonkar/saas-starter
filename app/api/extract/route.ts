@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Initial extraction request
     const extractResponse = await fetch(`${FIRECRAWL_API_URL}/extract`, {
       method: 'POST',
       headers: {
@@ -43,36 +42,15 @@ export async function POST(request: NextRequest) {
 
     const extractData = await extractResponse.json();
     const extractId = extractData.id;
-    console.log(extractData.id)
+    console.log('Extract ID:', extractId);
 
     if (!extractId) {
       throw new Error('No extract ID received');
     }
 
-    // Step 2: Get extraction results
-    const resultResponse = await fetch(`${FIRECRAWL_API_URL}/extract/${extractId}`, {
-      headers: {
-        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-      },
-    });
-
-    if (!resultResponse.ok) {
-      const errorText = await resultResponse.text();
-      console.error('Firecrawl Get Extract API error:', errorText);
-      throw new Error('Failed to get extraction results');
-    }
-
-    const resultData = await resultResponse.json();
-    console.log('Firecrawl result data:', resultData); // Debug log
-
-    // Format the response to match our ExtractedData interface
     return NextResponse.json({
       success: true,
-      data: {
-        title: resultData.results?.[0]?.title || '',
-        summary: resultData.results?.[0]?.content || '',
-        keywords: resultData.results?.[0]?.metadata?.keywords || []
-      }
+      extractId: extractId
     });
 
   } catch (error) {

@@ -13,15 +13,10 @@ interface ExtractedData {
   keywords: string[];
 }
 
-interface ExtractResponse {
-  success: boolean;
-  data: ExtractedData;
-  error?: string;
-}
-
 export default function DashboardPage() {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedData>({
     title: '',
     summary: '',
@@ -29,35 +24,56 @@ export default function DashboardPage() {
   });
   const [error, setError] = useState<string | null>(null);
 
+  async function pollExtractResults(extractId: string) {
+    setIsPolling(true);
+    try {
+      const response = await fetch(`/api/extract/${extractId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get results');
+      }
+
+      if (data.success && data.data) {
+        setExtractedData({
+          title: data.data.title || '',
+          summary: data.data.summary || '',
+          keywords: data.data.keywords || []
+        });
+        setIsPolling(false);
+      } else {
+        // If still processing, poll again after 2 seconds
+        setTimeout(() => pollExtractResults(extractId), 2000);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to get results');
+      setIsPolling(false);
+    }
+  }
+
   async function handleExtract(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setExtractedData({ title: '', summary: '', keywords: [] });
 
     try {
+      // Step 1: Initiate extraction
       const response = await fetch('/api/extract', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
 
-      const data: ExtractResponse = await response.json();
-      console.log('API Response:', data);
+      const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to extract data');
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to start extraction');
       }
 
-      console.log('Setting extracted data:', data.data);
-      setExtractedData({
-        title: data.data.title || '',
-        summary: data.data.summary || '',
-        keywords: data.data.keywords || []
-      });
+      // Step 2: Poll for results
+      await pollExtractResults(data.extractId);
     } catch (err) {
-      console.error('Extraction error:', err);
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsLoading(false);
@@ -90,13 +106,13 @@ export default function DashboardPage() {
                 </div>
                 <Button 
                   type="submit" 
-                  disabled={isLoading}
+                  disabled={isLoading || isPolling}
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {isLoading ? (
+                  {isLoading || isPolling ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Extracting...
+                      {isPolling ? 'Getting Results...' : 'Extracting...'}
                     </>
                   ) : (
                     <>
