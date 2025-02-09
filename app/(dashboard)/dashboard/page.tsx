@@ -8,8 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link as LinkIcon } from 'lucide-react';
 import FirecrawlApp, { ExtractResponse } from "@mendable/firecrawl-js";
 
-const apiKey = process.env.FIRECRAWL_API_KEY;
-
 export default function DashboardPage() {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -22,7 +20,7 @@ export default function DashboardPage() {
   async function fetchData(url: string) {
     try {
       const app = new FirecrawlApp({
-        apiKey: process.env.FIRECRAWL_API_KEY
+        apiKey: process.env.NEXT_PUBLIC_FIRECRAWL_API_KEY
       });
 
       const job = await app.extract([url], {
