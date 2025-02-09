@@ -44,13 +44,20 @@ export default function DashboardPage() {
       });
 
       const data: ExtractResponse = await response.json();
+      console.log('API Response:', data);
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to extract data');
       }
 
-      setExtractedData(data.data);
+      console.log('Setting extracted data:', data.data);
+      setExtractedData({
+        title: data.data.title || '',
+        summary: data.data.summary || '',
+        keywords: data.data.keywords || []
+      });
     } catch (err) {
+      console.error('Extraction error:', err);
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsLoading(false);

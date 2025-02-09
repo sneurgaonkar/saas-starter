@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
 
     const extractData = await extractResponse.json();
     const extractId = extractData.id;
+    console.log(extractData.id)
 
     if (!extractId) {
       throw new Error('No extract ID received');
@@ -62,13 +63,15 @@ export async function POST(request: NextRequest) {
     }
 
     const resultData = await resultResponse.json();
+    console.log('Firecrawl result data:', resultData); // Debug log
 
+    // Format the response to match our ExtractedData interface
     return NextResponse.json({
       success: true,
       data: {
-        title: resultData.title || '',
-        summary: resultData.summary || '',
-        keywords: resultData.keywords || []
+        title: resultData.results?.[0]?.title || '',
+        summary: resultData.results?.[0]?.content || '',
+        keywords: resultData.results?.[0]?.metadata?.keywords || []
       }
     });
 
