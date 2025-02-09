@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link as LinkIcon } from 'lucide-react';
 import FirecrawlApp, { ExtractResponse } from "@mendable/firecrawl-js";
 
+const apiKey = process.env.FIRECRAWL_API_KEY;
+
 export default function DashboardPage() {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -20,10 +22,10 @@ export default function DashboardPage() {
   async function fetchData(url: string) {
     try {
       const app = new FirecrawlApp({
-        apiKey: "fc-9902bc4fb148446db026d06deda3688e"
+        apiKey: process.env.FIRECRAWL_API_KEY
       });
 
-      const job = await app.asyncExtract([url], {
+      const job = await app.extract([url], {
         prompt: "Generate a summary of the website, extract the title, and generate some keywords relevant to the website.",
       });
 
@@ -32,24 +34,10 @@ export default function DashboardPage() {
       }
 
       console.log(job);
+      setTitle(job.data.title || '');
+      setSummary(job.data.summary || '');
+      setKeywords(job.data.keywords || '');
       setExtractJob(job);
-
-      await wait(10000);
-
-      const options = {
-        method: 'GET',
-        headers: {Authorization: 'Bearer fc-9902bc4fb148446db026d06deda3688e'}
-      };
-
-      fetch('https://api.firecrawl.dev/v1/extract/'+job.id, options)
-        .then(response => response.json())
-        .then(response => {
-          console.log(response);
-          setTitle(response.data.title || '');
-          setSummary(response.data.summary || '');
-          setKeywords(response.data.keywords || '');
-        })
-        .catch(err => console.error(err));
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
