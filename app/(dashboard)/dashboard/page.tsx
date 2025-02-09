@@ -5,79 +5,61 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Link as LinkIcon } from 'lucide-react';
-
-interface ExtractedData {
-  title: string;
-  summary: string;
-  keywords: string[];
-}
+import { Link as LinkIcon } from 'lucide-react';
+import FirecrawlApp, { ExtractResponse } from "@mendable/firecrawl-js";
 
 export default function DashboardPage() {
   const [url, setUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isPolling, setIsPolling] = useState(false);
-  const [extractedData, setExtractedData] = useState<ExtractedData>({
-    title: '',
-    summary: '',
-    keywords: []
-  });
+  const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
+  const [keywords, setKeywords] = useState('');
+  const [extractJob, setExtractJob] = useState<ExtractResponse<any> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  async function pollExtractResults(extractId: string) {
-    setIsPolling(true);
+  async function fetchData(url: string) {
     try {
-      const response = await fetch(`/api/extract/${extractId}`);
-      const data = await response.json();
+      const app = new FirecrawlApp({
+        apiKey: "fc-9902bc4fb148446db026d06deda3688e"
+      });
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to get results');
+      const job = await app.asyncExtract([url], {
+        prompt: "Generate a summary of the website, extract the title, and generate some keywords relevant to the website.",
+      });
+
+      if (!job.success) {
+        throw new Error(`Failed to scrape: ${job.error}`);
       }
 
-      if (data.success && data.data) {
-        setExtractedData({
-          title: data.data.title || '',
-          summary: data.data.summary || '',
-          keywords: data.data.keywords || []
-        });
-        setIsPolling(false);
-      } else {
-        // If still processing, poll again after 2 seconds
-        setTimeout(() => pollExtractResults(extractId), 2000);
-      }
+      console.log(job);
+      setExtractJob(job);
+
+      await wait(10000);
+
+      const options = {
+        method: 'GET',
+        headers: {Authorization: 'Bearer fc-9902bc4fb148446db026d06deda3688e'}
+      };
+
+      fetch('https://api.firecrawl.dev/v1/extract/'+job.id, options)
+        .then(response => response.json())
+        .then(response => {
+          console.log(response);
+          setTitle(response.data.title || '');
+          setSummary(response.data.summary || '');
+          setKeywords(response.data.keywords || '');
+        })
+        .catch(err => console.error(err));
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get results');
-      setIsPolling(false);
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
     }
   }
 
-  async function handleExtract(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    setExtractedData({ title: '', summary: '', keywords: [] });
-
-    try {
-      // Step 1: Initiate extraction
-      const response = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to start extraction');
-      }
-
-      // Step 2: Poll for results
-      await pollExtractResults(data.extractId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setIsLoading(false);
-    }
+    fetchData(url);
+    console.log('URL submitted:', url);
   }
 
   return (
@@ -92,7 +74,7 @@ export default function DashboardPage() {
             <CardTitle>Get details from URL</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleExtract} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Input
@@ -105,21 +87,11 @@ export default function DashboardPage() {
                   />
                 </div>
                 <Button 
-                  type="submit" 
-                  disabled={isLoading || isPolling}
+                  type="submit"
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {isLoading || isPolling ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {isPolling ? 'Getting Results...' : 'Extracting...'}
-                    </>
-                  ) : (
-                    <>
-                      <LinkIcon className="mr-2 h-4 w-4" />
-                      Extract
-                    </>
-                  )}
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                  Submit
                 </Button>
               </div>
             </form>
@@ -134,53 +106,40 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {(extractedData.title || extractedData.summary || extractedData.keywords.length > 0) && (
+        {extractJob && (
           <Card>
             <CardHeader>
-              <CardTitle>Extracted Data</CardTitle>
+              <CardTitle>Extraction Results</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
-                </label>
-                <Input
-                  value={extractedData.title}
-                  onChange={(e) => setExtractedData(prev => ({
-                    ...prev,
-                    title: e.target.value
-                  }))}
-                  className="w-full"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Summary
-                </label>
-                <Textarea
-                  value={extractedData.summary}
-                  onChange={(e) => setExtractedData(prev => ({
-                    ...prev,
-                    summary: e.target.value
-                  }))}
-                  className="w-full min-h-[100px]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Keywords
-                </label>
-                <Input
-                  value={extractedData.keywords.join(', ')}
-                  onChange={(e) => setExtractedData(prev => ({
-                    ...prev,
-                    keywords: e.target.value.split(',').map(k => k.trim())
-                  }))}
-                  className="w-full"
-                  placeholder="Comma-separated keywords"
-                />
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <Input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Summary</label>
+                  <Textarea
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    className="w-full"
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Keywords</label>
+                  <Input
+                    type="text"
+                    value={keywords}
+                    onChange={(e) => setKeywords(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
