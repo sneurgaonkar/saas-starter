@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
-const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/v1/extract';
+const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/v1';
 
 export async function POST(request: NextRequest) {
   try {
